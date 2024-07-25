@@ -1,46 +1,122 @@
-# ZephyrLLMChatbot
-A guideline to build no-cost LLM chatbot 
+# Italian Chef Chatbot
 
-This README provides a structured and detailed guide to help users through the process of creating and deploying a customized LLM chatbot using Hugging Face Spaces and Gradio, highlighting key steps and customization options, complete with useful links for easy navigation.
+## Overview
 
+This application creates a chatbot that acts as a skilled Italian chef, providing expert guidance on cooking methodologies and step-by-step recipes. The chatbot is built using Gradio for the user interface and the Hugging Face Inference API for generating responses.
 
-# Build and Deploy Your Custom LLM App in 5 Minutes for Free
+## How It Works
 
-## Introduction
-Welcome to the Italian Chef Chatbot, your virtual culinary assistant tailored to bring the expertise of Italian cooking right to your fingertips. With this chatbot, you can master the art of grilling a steak, perfect the delicate techniques of Italian pastry making, or find comforting traditional dishes to impress your guests. Built using Hugging Face Spaces and Gradio, this guide will help you set up and deploy your own Italian Chef Chatbot in just five minutes, completely free of charge. Follow these simple steps, and you'll have a skilled Italian chef ready to share recipes, cooking tips, and culinary secrets. Whether you're a novice cook or a seasoned chef, this chatbot is designed to elevate your cooking experience.
+### Components
 
-## Prerequisites
-Before you  start creating your chatbot, make sure you have the following:
-- **A Hugging Face Account**: Essential for accessing the platform where you'll build and host your chatbot. [Sign up here](https://huggingface.co/join).
+1. **Gradio**: A Python library for creating user interfaces for machine learning models.
+2. **Hugging Face Inference API**: Used for generating responses from a language model.
 
-## Setup and Deployment
-1. **Choosing Your Chatbot’s Identity**: this chatbot will take on the role of a skilled Italian chef. This identity will shape its interactions, focusing on providing detailed cooking methodologies, step-by-step recipes, and expert tips on Italian cooking
+### Key Functions
 
-2. **Logging into Hugging Face**:  Here, you'll need an account to access the tools required for deploying your chatbot. If you don't have an account, signing up is straightforward and quick.
+1. **`respond` Function**:
+    - Handles user queries and generates responses using the Hugging Face Inference API.
+    - Maintains conversation history and adds the system message to guide the chatbot's responses.
+    - Generates responses by streaming tokens from the model and yielding them incrementally.
 
-3. **Navigating to Hugging Face Spaces**: Spaces are where the magic happens. This section of Hugging Face allows users to create and manage their applications seamlessly. Navigate to [Spaces](https://huggingface.co/spaces) to get started.
+2. **`demo` Chat Interface**:
+    - Defines the chat interface using Gradio's `ChatInterface` component.
+    - Includes additional inputs for customizing the system message, maximum new tokens, temperature, and top-p values.
+    - Provides example queries to guide users on what to ask the chatbot.
 
-4. **Creating Your Space**: Initiate a new space by clicking on 'Create New Space'. It’s important that the name of your Space reflects the chatbot's role, as it helps in identifying the application’s purpose at a glance.
+### Detailed Code Explanation
 
-5. **Configuring Your Chatbot**:
-   - **Selecting the Framework and Model**: Choose 'Gradio' as the framework for its user-friendly interface capabilities, and select a suitable model, such as 'Zephyr 7B', known for its versatility across various tasks.
-   - **Customization**: Here’s where you personalize the chatbot. Depending on the selected role, you might want to tailor system messages and interaction style.
-      You are a skilled Italian chef. You are here to provide expert guidance on cooking methodologies and step-by-step recipes, such as the art of grilling a steak, mastering the delicate techniques of Italian pastry making, or crafting a comforting dish.
+```python
+import gradio as gr
+from huggingface_hub import InferenceClient
 
-6. **Deployment**: Once setup is complete, deploy your chatbot by simply clicking the create button. Deployment usually takes a couple of minutes. After this, your chatbot will be up and running and ready to interact.
+"""
+For more information on `huggingface_hub` Inference API support, please check the docs: https://huggingface.co/docs/huggingface_hub/v0.22.2/en/guides/inference
+"""
+client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
 
-## Customization Example
-To make your Italian Chef Chatbot truly unique, consider personalizing it extensively. Here are some ways to tailor the chatbot to its culinary role:
-- Modify the system messages  to include expert culinary advice, cooking tips, and recipe guidance. For example:"You are a skilled Italian chef. You are here to provide expert guidance on cooking methodologies and step-by-step recipes, such as the art of grilling a steak, mastering the delicate techniques of Italian pastry making, or crafting a comforting dish."
-- Program the chatbot to suggest traditional Italian recipes, guide users through complex cooking techniques, or offer tips on ingredient substitutions. Examples include:
+def respond(
+    message,
+    history: list[tuple[str, str]],
+    system_message,
+    max_tokens,
+    temperature,
+    top_p,
+):
+    # Define the system message guiding the chatbot's behavior
+    system_message = "you are a skilled Italian chef, you are here to provide expert guidance on cooking methodologies and step-by-step recipes. on the art of grilling a steak, mastering the delicate techniques of Italian pastry making, or craving a comforting dish"
+    
+    # Initialize the message list with the system message
+    messages = [{"role": "system", "content": system_message}]
 
-"How to perfectly grill a steak like they do in Italy?"
-"How do I elevate a simple tomato sauce to make it more flavorful?"
-"Can you recommend a traditional Italian pasta recipe?"
+    # Add the conversation history to the messages list
+    for val in history:
+        if val[0]:
+            messages.append({"role": "user", "content": val[0]})
+        if val[1]:
+            messages.append({"role": "assistant", "content": val[1]})
 
- Explore different roles and tweak the system instructions to discover the full potential of your chatbot. Don’t forget to share your creations and experiences, as your insights could inspire others in their chatbot development.
+    # Add the user's new message to the messages list
+    messages.append({"role": "user", "content": message})
 
- If you wish to contribute: Please fork this repo. 
+    response = ""
 
- For any question reach me out @ turna.fardousi@gmail.com
+    # Generate the response by streaming tokens from the Hugging Face model
+    for message in client.chat_completion(
+        messages,
+        max_tokens=max_tokens,
+        stream=True,
+        temperature=temperature,
+        top_p=top_p,
+    ):
+        token = message.choices[0].delta.content
+        response += token
+        yield response
 
+"""
+For information on how to customize the ChatInterface, peruse the gradio docs: https://www.gradio.app/docs/chatinterface
+"""
+# Create the Gradio ChatInterface
+demo = gr.ChatInterface(
+    respond,
+    additional_inputs=[
+        gr.Textbox(value="you are a skilled Italian chef, you are here to provide expert guidance on cooking methodologies and step-by-step recipes. on the art of grilling a steak, mastering the delicate techniques of Italian pastry making, or craving a comforting dish", label="System message"),
+        gr.Slider(minimum=1, maximum=2048, value=512, step=1, label="Max new tokens"),
+        gr.Slider(minimum=0.1, maximum=4.0, value=0.7, step=0.1, label="Temperature"),
+        gr.Slider(minimum=0.1, maximum=1.0, value=0.95, step=0.05, label="Top-p (nucleus sampling)"),
+    ],
+    examples=[
+        ["How to perfectly grill a steak like they do in Italy?"],
+        ["How do I elevate a simple tomato sauce to make it more flavorful?"],
+        ["Can you recommend a traditional Italian pasta recipe?"]
+    ],
+    title='Italian_Chef'
+)
+
+# Launch the Gradio app
+if __name__ == "__main__":
+    demo.launch()
+```
+
+### Application Workflow
+
+1. **User Input**: The user interacts with the chatbot by asking a question.
+2. **Message Handling**: The `respond` function processes the user's question, adds it to the conversation history, and sends it to the Hugging Face model.
+3. **Response Generation**: The Hugging Face model generates a response based on the user's question and the context provided by the conversation history and system message.
+4. **Streaming Response**: The response is streamed back to the user token by token, providing a real-time interaction.
+5. **Customization**: Users can adjust the chatbot's behavior using the additional inputs (system message, max new tokens, temperature, and top-p) provided in the Gradio interface.
+
+### Chatbot Identity and Example Queries
+
+The Italian Chef Chatbot is designed to provide expert guidance on various aspects of Italian cooking. Here are some example queries you can ask:
+
+- "How to perfectly grill a steak like they do in Italy?"
+- "How do I elevate a simple tomato sauce to make it more flavorful?"
+- "Can you recommend a traditional Italian pasta recipe?"
+
+### How It Helps Users
+
+- **Expert Cooking Guidance**: Provides detailed and expert advice on Italian cooking techniques and recipes.
+- **Interactive Learning**: Users can engage in a conversational manner to learn about various Italian dishes and cooking methods.
+- **Customizable Responses**: Users can adjust the chatbot's behavior and response characteristics to better suit their needs.
+
+This application serves as a helpful tool for anyone looking to enhance their Italian cooking skills through interactive and personalized guidance from a virtual Italian chef.
